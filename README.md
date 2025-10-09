@@ -1,72 +1,119 @@
-# AES-GCM-Folder-Encryptor
-AES-GCM Folder Encryptor adalah sebuah suite demonstrasi kriptografi yang mengimplementasikan dua standar enkripsi simetris modern yang berbeda, yaitu AES-GCM dan ChaCha20-Poly1305, untuk memenuhi kebutuhan keamanan digital yang berbeda.
+# 🔐 AES-GCM Folder Encryptor (Python)
 
-## Proyek Kriptografi Modern: Implementasi AES-GCM & ChaCha20
-Proyek ini adalah implementasi praktis dari dua skema enkripsi simetris modern yang paling relevan saat ini, berfokus pada Authenticated Encryption with Associated Data (AEAD) untuk menjamin Kerahasiaan, Integritas, dan Otentikasi data.
+Aplikasi Python untuk **mengenkripsi dan mendekripsi seluruh file dalam satu folder** menggunakan algoritma **AES-GCM (Authenticated Encryption)**.  
+Proyek ini dirancang untuk latihan penerapan **AES mode modern (GCM)** serta sistem **batch encryption** pada banyak file sekaligus.
 
-Aplikasi ini dibagi menjadi dua modul utama:
+---
 
-1. AES-GCM Folder Encryptor: Untuk mengamankan data yang tersimpan (data at rest).
-2. ChaCha20-Poly1305 API Security: Untuk mengamankan data yang ditransmisikan (data in transit).
+## 📂 Fitur Utama
 
-## 🚀 Persiapan dan Instalasi
-Pastikan Anda memiliki Python 3.x terinstal.
+✅ Mengenkripsi semua file dalam satu folder dengan **AES-GCM**  
+✅ Menghasilkan folder baru berisi file terenkripsi (`.enc`)  
+✅ Menyediakan fungsi dekripsi seluruh folder kembali ke bentuk semula  
+✅ Menjamin integritas data melalui **Authentication Tag (GCM Tag)**  
+✅ Menggunakan **satu password utama** untuk seluruh file  
+✅ Menyimpan data dengan struktur byte aman (salt, nonce, tag, ciphertext)  
+✅ Aman dari modifikasi file dan serangan brute-force  
 
-### 1. Instalasi Pustaka:
+---
 
-      pip install pycryptodome cryptography
+## ⚙️ Teknologi & Modul yang Digunakan
 
-### 2. Struktur Proyek:
-Pastikan file skrip berada dalam struktur berikut:
-     
-      .
-      ├── aes_folder_encryptor.py     # Modul 1: AES-GCM
-      ├── chacha20_api_encryptor.py   # Modul 2: ChaCha20
-      └── README.md
+- Python 3.8+
+- [PyCryptodome](https://pypi.org/project/pycryptodome/)
+- AES-256 (GCM mode)
+- PBKDF2 (Password-Based Key Derivation Function 2)
 
-## 1. Modul AES-GCM Folder Encryptor
-Modul ini adalah alat batch yang kuat untuk mengenkripsi seluruh folder file menggunakan AES-256 dalam mode GCM.
+---
 
-### Fitur Kriptografi Utama
-- AES-256 GCM:Standar enkripsi simetris yang paling kuat dengan Authentication Tag untuk verifikasi integritas.
+## 📁 Struktur Folder
 
-- PBKDF2: Menggunakan 100.000 iterasi PBKDF2-HMAC-SHA256 untuk menderivasi kunci yang sangat aman dari password pengguna.
+📦 aes-gcm-folder-encryptor
 
-- Dukungan Fleksibel: Mampu memproses seluruh folder atau file tunggal.
+┣ 📂 input_folder/ # Folder sumber berisi file asli
 
-### Cara Menggunakan
-Jalankan skrip ` aes_folder_encryptor.py ` dari terminal:
+┣ 📂 data_terenkripsi/ # Folder hasil enkripsi (.enc)
 
-      python aes_folder_encryptor.py
+┣ 📂 data_hasil_dekripsi/ # Folder hasil dekripsi
 
-Anda akan diminta untuk memasukkan informasi berikut:
+┣ 📜 encryptor.py # Script utama
 
+┗ 📜 README.md # Dokumentasi proyek
 
 
-### Hasil & Verifikasi Integritas
-File terenkripsi (.enc) menyimpan Salt, Nonce, Authentication Tag, dan Ciphertext.
+## 🚀 Cara Penggunaan
 
-Jika Anda mencoba mendekripsi dengan password yang salah, atau jika konten file terenkripsi diubah, aplikasi akan secara otomatis mendeteksi kegagalan otentikasi dan menampilkan pesan GAGAL DEKRIPSI/VERIFIKASI TAG.
+### 1️⃣ Instalasi
+Pastikan Python dan PyCryptodome sudah terpasang:
 
-## 2. Modul ChaCha20-Poly1305 API Security
-Modul ini adalah simulasi pertukaran data antara klien dan server, menyoroti penggunaan stream cipher modern, ChaCha20-Poly1305, yang unggul dalam kecepatan dan keamanan untuk data yang bergerak (in transit).
+      pip install pycryptodome
 
-### Konsep Kriptografi
-- Algoritma: Menggunakan kombinasi ChaCha20 (untuk kerahasiaan) dan Poly1305 (Message Authentication Code untuk integritas).
 
-- AEAD Penuh: Implementasi ini adalah skema AEAD, menjamin data rahasia dan otentik dalam satu operasi.
+### 2️⃣ Menjalankan Program
+      python encryptor.py
 
-- Penggunaan API: Data payload (JSON) dienkripsi, dikodekan dalam Base64 URL-safe, dan siap dikirim sebagai bagian dari permintaan API.
+Anda akan diminta untuk:
 
-### Cara Menjalankan:
-Jalankan skrip ` chacha20_api_encryptor.py ` dari terminal:
+Memasukkan password utama
+Memilih mode:
 
-      python chacha20_api_encryptor.py
+1 = Enkripsi Folder
 
-Skrip ini akan berjalan secara otomatis, menampilkan tiga tahap:
+2 = Dekripsi Folder
 
-1. Enkripsi Sisi Klien: Mengubah payload JSON menjadi format terenkripsi (Base64).
+### 3️⃣ Enkripsi
 
-2. Dekripsi Sisi Server: Berhasil mendekripsi dan memulihkan payload asli.
+Semua file dalam input_folder/ akan dienkripsi ke data_terenkripsi/
 
-3. Uji Tampering: Mendemonstrasikan bagaimana Poly1305 segera mendeteksi kegagalan otentikasi ketika data terenkripsi diubah (walaupun hanya satu karakter).
+Setiap file akan mendapatkan ekstensi .enc
+
+Contoh hasil:
+
+            input_folder/Proposal.pdf
+            → data_terenkripsi/Proposal.pdf.enc
+
+### 4️⃣ Dekripsi
+
+Semua file ` .enc ` di ` data_terenkripsi/ ` akan didekripsi ke ` data_hasil_dekripsi/ `
+
+File hasil dekripsi akan sama persis dengan file aslinya.
+
+
+
+## 🔒 Keamanan
+
+- Menggunakan AES-256 GCM, algoritma yang aman dan modern.
+
+- Authentication Tag (GCM Tag) menjamin integritas dan keaslian data.
+
+- Password diubah menjadi kunci kriptografi 256-bit melalui PBKDF2 dengan 100.000 iterasi dan salt acak.
+
+- Password tidak disimpan di mana pun — diminta langsung saat runtime melalui getpass() (tidak terlihat di layar).
+
+.
+
+## 🧪 Contoh Output
+
+            Masukkan password utama: ********
+            --- Pilihan Mode ---
+            1. Enkripsi Folder
+            2. Dekripsi Folder
+            Masukkan pilihan (1/2, atau 'q' untuk keluar): 1
+            ----------------------------------------
+            Mode: ENKRIPSI
+            Folder Sumber: 'input_folder'
+            Folder Tujuan: 'data_terenkripsi'
+            ----------------------------------------
+              [+] Berhasil mengenkripsi: file1.pdf
+              [+] Berhasil mengenkripsi: file2.docx
+            ----------------------------------------
+            Proses selesai.
+
+
+## 👨‍💻 Kontributor
+
+Nama: (Achmad Amirul Ahad)
+
+Institusi: ( Universitas Negeri Surabaya)
+
+Tahun: 2023
