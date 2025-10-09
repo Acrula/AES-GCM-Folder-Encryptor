@@ -1,152 +1,166 @@
+# encryptor.py
+
 import os
+import sys
 import getpass
-import json
 from Crypto.Cipher import AES
 from Crypto.Protocol.KDF import PBKDF2
 from Crypto.Random import get_random_bytes
-from Crypto.Util import Counter
 
-# --- Konstanta ---
-KEY_LENGTH = 32  # 256 bits for AES-256
-SALT_LENGTH = 16 # 16 bytes for salt
-NONCE_LENGTH = 12 # 96 bits for AES-GCM Nonce
-ITERATIONS = 100000
+# ==============================================================================
+# --- KONFIGURASI FOLDER ---
+# !!! PENTING: Pastikan nama folder di bawah ini SAMA PERSIS dengan nama
+# folder yang ada di komputer Anda.
+# ==============================================================================
+FOLDER_ASLI           = 'input_folder'         # Folder sumber berisi file asli
+FOLDER_TERENKRIPSI    = 'data_terenkripsi'     # Folder tujuan untuk file .enc
+FOLDER_HASIL_DEKRIPSI = 'data_hasil_dekripsi'  # Folder tujuan untuk file hasil dekripsi
+# ==============================================================================
+
+# --- Konstanta Kriptografi ---
+KEY_LENGTH = 32      # AES-256
+SALT_LENGTH = 16     # Standar industri
+ITERATIONS = 100000  # Jumlah iterasi PBKDF2
 
 def derive_key(password: str, salt: bytes) -> bytes:
     """Menderivasi kunci dari password dan salt menggunakan PBKDF2."""
     return PBKDF2(password.encode('utf-8'), salt, dkLen=KEY_LENGTH, count=ITERATIONS)
 
 def encrypt_file(file_path: str, password: str, output_dir: str):
-    """Mengenkeskripsi file tunggal menggunakan AES-GCM."""
+    """Mengenkripsi satu file menggunakan AES-GCM."""
     try:
-        # 1. Generate Salt dan Key
         salt = get_random_bytes(SALT_LENGTH)
         key = derive_key(password, salt)
-        
-        # 2. Inisialisasi Cipher (akan menghasilkan Nonce secara otomatis)
-        cipher = AES.new(key, AES.MODE_GCM)
-        nonce = cipher.nonce # Ambil Nonce yang dibuat
 
-        # 3. Baca konten file
+        cipher = AES.new(key, AES.MODE_GCM)
+        nonce = cipher.nonce
+
         with open(file_path, 'rb') as f:
             plaintext = f.read()
 
-        # 4. Enkripsi dan buat Authentication Tag
         ciphertext, tag = cipher.encrypt_and_digest(plaintext)
 
-        # 5. Tulis output ke file baru
         encrypted_filename = os.path.basename(file_path) + ".enc"
         output_path = os.path.join(output_dir, encrypted_filename)
 
-        # Format file: Salt + Nonce + Tag + Ciphertext
         with open(output_path, 'wb') as f:
+            # Simpan panjang setiap bagian agar dekripsi akurat
+            f.write(len(salt).to_bytes(1, 'big'))
             f.write(salt)
+            f.write(len(nonce).to_bytes(1, 'big'))
             f.write(nonce)
+            f.write(len(tag).to_bytes(1, 'big'))
             f.write(tag)
             f.write(ciphertext)
-        
-        print(f"  [+] Berhasil mengenkripsi: {file_path} -> {output_path}")
 
+        print(f"  [+] Berhasil mengenkripsi: {os.path.basename(file_path)}")
     except Exception as e:
-        print(f"  [!] Gagal mengenkripsi {file_path}: {e}")
+        print(f"  [!] Gagal mengenkripsi {os.path.basename(file_path)}: {e}")
 
 def decrypt_file(encrypted_file_path: str, password: str, output_dir: str):
-    """Mendekripsi file tunggal yang terenkripsi dengan AES-GCM."""
+    """Mendekripsi dan memverifikasi satu file AES-GCM."""
     try:
-        # 1. Baca data terenkripsi (Salt, Nonce, Tag, Ciphertext)
         with open(encrypted_file_path, 'rb') as f:
-            # Pastikan urutan dan panjang data sesuai saat enkripsi
-            salt = f.read(SALT_LENGTH)
-            nonce = f.read(NONCE_LENGTH)
-            tag = f.read(16) # AES-GCM Tag length is typically 16 bytes
+            salt_len = int.from_bytes(f.read(1), 'big')
+            salt = f.read(salt_len)
+
+            nonce_len = int.from_bytes(f.read(1), 'big')
+            nonce = f.read(nonce_len)
+
+            tag_len = int.from_bytes(f.read(1), 'big')
+            tag = f.read(tag_len)
+
             ciphertext = f.read()
 
-        # 2. Derive Key
         key = derive_key(password, salt)
-
-        # 3. Inisialisasi Cipher
         cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
-
-        # 4. Dekripsi dan Verifikasi Tag
         plaintext = cipher.decrypt_and_verify(ciphertext, tag)
 
-        # 5. Tulis output ke file baru
         original_filename = os.path.basename(encrypted_file_path)[:-len(".enc")]
         output_path = os.path.join(output_dir, original_filename)
-        
+
         with open(output_path, 'wb') as f:
             f.write(plaintext)
-        
-        print(f"  [+] Berhasil mendekripsi: {encrypted_file_path} -> {output_path}")
 
+        print(f"  [+] Berhasil mendekripsi: {os.path.basename(encrypted_file_path)}")
     except ValueError:
-        print(f"  [!!!] GAGAL DEKRIPSI/VERIFIKASI TAG untuk: {encrypted_file_path}. Password salah atau file telah diubah.")
+        print(f"  [!!!] GAGAL DEKRIPSI: {os.path.basename(encrypted_file_path)}. Password salah atau file korup/diubah.")
     except Exception as e:
-        print(f"  [!] Gagal mendekripsi {encrypted_file_path}: {e}")
+        print(f"  [!] Gagal mendekripsi {os.path.basename(encrypted_file_path)}: {e}")
 
-
-# BARIS ~100
-def process_folder(action: str, input_dir: str, output_dir: str, password: str):
-    """Fungsi utama untuk memproses seluruh folder ATAU file tunggal."""
-    
-    # Periksa apakah input adalah FILE tunggal
-    if os.path.isfile(input_dir):
-        # Jika itu file, panggil fungsi enkripsi/dekripsi file secara langsung
-        os.makedirs(output_dir, exist_ok=True) # Pastikan output folder ada
-        
-        print(f"\nMode: {action.capitalize()} File Tunggal")
-        print(f"Input File: {input_dir}")
-        print(f"Output Folder: {output_dir}")
-        print("-" * 30)
-
-        if action == 'enkripsi':
-            encrypt_file(input_dir, password, output_dir)
-        elif action == 'dekripsi' and input_dir.endswith(".enc"):
-            decrypt_file(input_dir, password, output_dir)
-        elif action == 'dekripsi':
-             print(f"  [-] Melewatkan file non-enkripsi: {input_dir} (Harus berakhiran .enc untuk dekripsi)")
-        return # Keluar dari fungsi setelah memproses file tunggal
-
-    # Jika input adalah FOLDER (Logika Awal)
-    if not os.path.exists(input_dir):
-        print(f"Error: Folder input '{input_dir}' tidak ditemukan.")
+def process_folder(mode: str, input_dir: str, output_dir: str, password: str):
+    """Fungsi utama untuk memproses seluruh file dalam sebuah folder."""
+    if not os.path.isdir(input_dir):
+        print(f"\n[ERROR] Folder sumber '{input_dir}' tidak ditemukan!")
+        print("Mohon periksa kembali bagian 'KONFIGURASI FOLDER' di dalam kode.")
         return
 
-    # Buat folder output jika belum ada
-    os.makedirs(output_dir, exist_ok=True)
-    
-    print(f"\nMode: {action.capitalize()} Folder")
-    print(f"Input: {input_dir}")
-    print(f"Output: {output_dir}")
-    print("-" * 30)
+    # Hapus folder output lama agar hasil baru bersih
+    if os.path.exists(output_dir):
+        for f in os.listdir(output_dir):
+            os.remove(os.path.join(output_dir, f))
+    else:
+        os.makedirs(output_dir)
 
-    for item in os.listdir(input_dir):
+    print("-" * 40)
+    print(f"Mode: {mode.upper()}")
+    print(f"Folder Sumber: '{input_dir}'")
+    print(f"Folder Tujuan: '{output_dir}'")
+    print("-" * 40)
+
+    files_in_dir = os.listdir(input_dir)
+    if not files_in_dir:
+        print("  [-] Folder sumber kosong, tidak ada file yang diproses.")
+
+    for item in files_in_dir:
         input_path = os.path.join(input_dir, item)
         if os.path.isfile(input_path):
-            if action == 'enkripsi': # Ubah dari 'encrypt'
+            if mode == 'enkripsi':
                 encrypt_file(input_path, password, output_dir)
-            elif action == 'dekripsi' and item.endswith(".enc"): # Ubah dari 'decrypt'
-                decrypt_file(input_path, password, output_dir)
-            elif action == 'dekripsi' and not item.endswith(".enc"):
-                print(f"  [-] Melewatkan file non-enkripsi: {input_path}")
+            elif mode == 'dekripsi':
+                if item.endswith(".enc"):
+                    decrypt_file(input_path, password, output_dir)
+                else:
+                    print(f"  [-] Melewatkan file non-enkripsi: {item}")
 
+    print("-" * 40)
+    print("Proses selesai.")
 
-def main_aes_gcm():
-    print("--- Aplikasi Enkripsi/Dekripsi Folder AES-GCM ---")
-    
+def main():
+    """Fungsi utama untuk menjalankan program interaktif."""
+    try:
+        password = getpass.getpass("Masukkan password utama: ")
+        if not password:
+            print("\n[ERROR] Password tidak boleh kosong.")
+            sys.exit(1)
+    except KeyboardInterrupt:
+        print("\nProses dibatalkan.")
+        sys.exit()
+
     while True:
-        mode = input("Pilih mode (enkripsi/dekripsi): ").lower()
-        if mode in ['enkripsi', 'dekripsi']:
-            break
-        print("Pilihan tidak valid. Silakan masukkan 'enkripsi' atau 'dekripsi'.")
+        print("\n--- Pilihan Mode ---")
+        print("1. Enkripsi Folder")
+        print("2. Dekripsi Folder")
+        choice = input("Masukkan pilihan (1/2, atau 'q' untuk keluar): ").strip().lower()
 
-    input_folder_name = input("Masukkan nama folder sumber (misalnya: input_folder): ")
-    output_folder_name = input(f"Masukkan nama folder tujuan (misalnya: {'encrypted_folder' if mode == 'enkripsi' else 'decrypted_folder'}): ")
-    
-    password = getpass.getpass("Masukkan password utama: ")
-    
-    process_folder(mode, input_folder_name, output_folder_name, password)
-    print("\nProses selesai.")
+        if choice == '1':
+            mode, input_folder, output_folder = 'enkripsi', FOLDER_ASLI, FOLDER_TERENKRIPSI
+            break
+        elif choice == '2':
+            mode, input_folder, output_folder = 'dekripsi', FOLDER_TERENKRIPSI, FOLDER_HASIL_DEKRIPSI
+            break
+        elif choice == 'q':
+            print("Program dihentikan.")
+            sys.exit()
+        else:
+            print("Pilihan tidak valid. Silakan coba lagi.")
+
+    process_folder(
+        mode=mode,
+        input_dir=input_folder,
+        output_dir=output_folder,
+        password=password
+    )
 
 if __name__ == "__main__":
-    main_aes_gcm()
+    main()
